@@ -1,5 +1,8 @@
 # Mayhem Mobile —— 中文注释版（新手导读）
 
+**在线地址（GitHub Pages）：https://ybm911.github.io/mayhem-mobile-cn/**
+（必须用 Chrome / Edge 打开，WebUSB 需要 HTTPS 或 localhost；Safari、Firefox 不支持 WebUSB。）
+
 原项目：https://github.com/RocketGod-git/mayhem-mobile
 原作者：RocketGod。本目录只做了三件事：**界面中文化** + **源码加中文注释** + **本地构建运行**，代码逻辑一行没动。
 
