@@ -1,0 +1,103 @@
+<!doctype html>
+<!--
+  ===========================================================================
+  index.html —— 整个页面唯一的一个 HTML 文件（其余界面全是 JS 动态生成的）
+  ---------------------------------------------------------------------------
+  新手注意：这个文件本身很短，因为 Mayhem Mobile 没有用 React/Vue 这类框架。
+  它的做法是：
+    1) 这里只放一个「骨架」：顶栏 + 一个空的 <main id="view">
+    2) build/app.js 运行时往 <main> 里拼 HTML，画出启动器、频谱、各种 App 界面
+
+  想改界面上某个按钮的文字，不要在这里找——去 src/main.ts（或 build/app.js）里
+  搜那段中文。这里只有顶栏这几个按钮。
+
+  另外：页面用 <script type="module"> 加载 JS。ES module 有跨域限制，
+  直接双击这个 html（file:// 协议）浏览器会拒绝加载，必须起一个本地 http 服务，
+  也就是项目里的 ./run_mayhem.sh。
+  ===========================================================================
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <!-- 手机上按设备宽度显示，viewport-fit=cover 是为了适配 iPhone 的刘海 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- 手机浏览器地址栏的颜色，换肤时会被 JS 改掉 -->
+  <meta name="theme-color" content="#0a0d13">
+  <meta name="description" content="Mayhem Mobile：把 PortaPack Mayhem 的接收机搬进浏览器，用 WebUSB 驱动 HackRF 或 RTL-SDR。">
+  <!-- 以下是分享链接时的预览卡片信息（Discord、X、iMessage、Slack 等会读） -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Mayhem Mobile">
+  <meta property="og:title" content="Mayhem Mobile">
+  <meta property="og:description" content="把 HackRF、PortaPack 或 RTL-SDR 直接插到手机或电脑上，免驱。在浏览器或安卓上运行 PortaPack Mayhem 的各种 App、业余电台 FT8、rtl_433 等。">
+  <meta property="og:url" content="https://rocketgod.dev/mayhem-mobile/">
+  <meta property="og:image" content="https://rocketgod.dev/mayhem-mobile/assets/og.jpg?v=2">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Mayhem Mobile 用 RTL-SDR 收听调频广播：瀑布图、频谱和电台名称，旁边写着「把无线电插到手机上，不用电脑，不用驱动」">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://rocketgod.dev/mayhem-mobile/assets/og.jpg?v=2">
+  <title>Mayhem Mobile</title>
+  <!-- PWA 相关：装到手机主屏幕后用 manifest 里的配置，图标用 icon.svg -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <!-- 顶栏：左边是标题，中间是设备状态，右边是工具按钮 -->
+  <header class="bar">
+    <div class="stripe"></div>
+    <div class="bar-row">
+      <div class="brand">
+        <!-- 点标题回首页 -->
+        <div id="title" class="wordmark">MAYHEM<span>MOBILE</span></div>
+        <div class="tag">安卓手机 · 桌面网页应用</div>
+        <div id="sub" class="sub">HackRF 或 RTL-SDR · 无设备</div>
+      </div>
+      <!-- 状态灯 + 状态文字；board 用于显示板卡型号（HackRF One / Pro / RTL-SDR Blog V4） -->
+      <div class="state"><span id="dot" class="dot off"></span><span id="status">插入 HackRF 或 RTL-SDR，然后点「连接」</span><span id="board" hidden></span></div>
+      <!-- ☰ 展开下面的工具条 -->
+      <button id="tools" class="chip icon">☰</button>
+    </div>
+    <!-- 工具条：这几个 id 会被 JS 通过 querySelector 绑定事件，不要改 -->
+    <div id="toolbar" class="toolbar">
+      <button id="connect" class="chip primary">连接</button>
+      <button id="mute" class="chip">静音</button>
+      <button id="log-toggle" class="chip">日志</button>
+      <button id="home" class="chip">首页</button>
+      <button id="settings-btn" class="chip">设置</button>
+    </div>
+  </header>
+
+  <!-- 浏览器不支持 WebUSB 时显示的提示（默认隐藏，JS 检测到再显示） -->
+  <div id="unsupported" class="notice" hidden>
+    当前浏览器不支持 WebUSB。请在安卓手机、Windows、macOS 或 Linux 上使用 Chrome 或 Edge，或者从下方启动器安装安卓 APK。
+    iPhone 和 iPad 无法通过浏览器访问 USB 设备。
+  </div>
+
+  <!-- 动态提示条（临时消息，比如「设备忙」「请先确认安全提示」） -->
+  <div id="hint" class="notice" hidden></div>
+
+  <!-- 日志窗口：默认全屏，可以切成「画中画」小窗 -->
+  <section id="log-panel" class="logwin" hidden>
+    <div id="log-bar" class="logwin-bar">
+      <span class="logwin-title">日志</span>
+      <button id="log-pip" class="chip">画中画</button>
+      <button id="log-save" class="chip">保存</button>
+      <button id="log-share" class="chip">分享</button>
+      <button id="log-clear" class="chip">清空</button>
+      <button id="log-close" class="chip">✕</button>
+    </div>
+    <!-- head 是设备信息摘要，body 是滚动的日志正文 -->
+    <pre id="log-head" class="logwin-head"></pre>
+    <pre id="log" class="logwin-body"></pre>
+  </section>
+
+  <!-- 所有界面都渲染到这个容器里。class="view launcher" 表示当前显示的是启动器 -->
+  <main id="view" class="view launcher"></main>
+
+  <!-- 入口脚本。type="module" 是必须的（代码用了 ES module 语法） -->
+  <script type="module" src="./build/app.js"></script>
+</body>
+</html>
